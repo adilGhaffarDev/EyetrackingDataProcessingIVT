@@ -12,7 +12,7 @@ from scipy.spatial import distance
 #Subjects were seated at 450mm from the screen.
 #Group 5 - s5, s15, s25, s1, s11, s21
 frequency = 1000
-velocityThreshold = 120 #deg/sec
+velocityThreshold = 100 #deg/sec
 minTimeThresoldFixation = 0.2
 maxTimeThresoldFixation = 0.3
 ourUsers = ['s5','s15','s25','s1','s11','s21']
@@ -101,19 +101,22 @@ def FinalResultIVT(fixationData1):
         centroid = (sum(x) / len(data), sum(y) / len(data))
         time = len(x)/frequency
         #centroids.append([centroid,time])
-        if time>=0.2:
+        if time>=0.1:
             centroidsTime.append([centroid,time])
             centroids.append(centroid)
     
     #saccade amplitudes
     saccadeApmlitudes = []
     if len(centroids) > 0:
-        prevPointDeg = (float(centroids[0][0])/97,float(centroids[0][1])/56) #conversion of units to degree
+        prevPointDeg = (0,0) #conversion of units to degree
+        t = 0;
         for center in centroids:
             currPointDeg = (float(center[0])/97,float(center[1])/56)#conversion of units to degree
-            dstDeg = distance.euclidean(prevPointDeg, currPointDeg)
-            saccadeApmlitudes.append(dstDeg)
+            if t != 0:
+                dstDeg = distance.euclidean(prevPointDeg, currPointDeg)
+                saccadeApmlitudes.append(dstDeg)
             prevPointDeg = currPointDeg
+            t = t+1
     
     finalresult.append(saccadeApmlitudes)
     finalresult.append(centroidsTime)
@@ -135,11 +138,13 @@ def IVTFixationPro(userdata):
         dstDeg = distance.euclidean(prevPointDeg, currPointDeg)
         dstUnit = distance.euclidean(prevPointUnit, currPointUnit)
         velocity = dstDeg/time
-        #print("velocity: "+ str(velocity))
+        velocityU = dstUnit/time
+
         if velocity <= velocityThreshold:
             fix.append(prevPointUnit)
         else:
             if len(fix)>0:
+                fix.append(currPointUnit)
                 fixTemp = list(fix)
                 currentSampleFixation.append(fixTemp)
             currentSampleSaccade.append(prevPointUnit)
