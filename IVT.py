@@ -2,8 +2,6 @@ import os
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib import colors as mcolors
-import math
 from scipy.spatial import distance
 #here are some additional settings that may help: There was a 3 x 3 points calibration matrix used, upper left point had coordinates -700, -700, and bottom right 700, 700, center point was at 0,0.  (These were not pixels, let's call them units)
 
@@ -14,8 +12,7 @@ from scipy.spatial import distance
 #Group 5 - s5, s15, s25, s1, s11, s21
 frequency = 1000
 velocityThreshold = 100 #deg/sec
-minTimeThresoldFixation = 0.2
-maxTimeThresoldFixation = 0.3
+timeThresoldFixation = 0.08 #sec
 ourUsers = ['s5','s15','s25','s1','s11','s21']
 s5_True = []
 s5_False = []
@@ -30,6 +27,7 @@ s11_False = []
 s21_True = []
 s21_False = []
 
+#Calculates mean fixation durations(MFA) and mean saccade amplitudes(MSA) and their standard deviations(SD)
 def MFD_MSA(fixationSaccadeData):
     finalresult = []
     MSAs = []
@@ -52,31 +50,31 @@ def MFD_MSA(fixationSaccadeData):
 
     return finalresult
 
+#Calculates overall MSAs and MFDs
 def GetOverallMSD_MFA(MSA_MFD_True,MSA_MFD_False):
-    s5_Overall_MSA = np.mean([MSA_MFD_True[0],MSA_MFD_False[0]])
-    s5_Overall_MSA_SD = np.mean([MSA_MFD_True[1],MSA_MFD_False[1]])
-    s5_Overall_MFD = np.mean([MSA_MFD_True[2],MSA_MFD_False[2]])
-    s5_Overall_MFD_SD = np.mean([MSA_MFD_True[3],MSA_MFD_False[3]])
+    s_Overall_MSA = np.mean([MSA_MFD_True[0],MSA_MFD_False[0]])
+    s_Overall_MSA_SD = np.mean([MSA_MFD_True[1],MSA_MFD_False[1]])
+    s_Overall_MFD = np.mean([MSA_MFD_True[2],MSA_MFD_False[2]])
+    s_Overall_MFD_SD = np.mean([MSA_MFD_True[3],MSA_MFD_False[3]])
     result = []
-    result.append(s5_Overall_MSA)
-    result.append(s5_Overall_MSA_SD)
-    result.append(s5_Overall_MFD)
-    result.append(s5_Overall_MFD_SD)
+    result.append(s_Overall_MSA)
+    result.append(s_Overall_MSA_SD)
+    result.append(s_Overall_MFD)
+    result.append(s_Overall_MFD_SD)
     return result
 
-
+#plotting of individual graphs against user ids
 def PlotBarGraph(true_means,false_means,overall_means,true_std,false_std,overall_std,yLabel,title):
-    
     ind = np.arange(len(true_means))  # the x locations for the groups
     width = 0.9  # the width of the bars
 
     fig,ax = plt.subplots()
-    rects1 = ax.bar(ind - width/3, true_means, width/3, yerr=true_std,
-                label='True')
-    rects2 = ax.bar(ind, false_means, width/3, yerr=false_std,
-                label='False')
-    rects3 = ax.bar(ind + width/3, overall_means, width/3, yerr=overall_std,
-                label='Overall')
+    ax.bar(ind - width/3, true_means, width/3, yerr=true_std,
+                label='True', capsize=4)
+    ax.bar(ind, false_means, width/3, yerr=false_std,
+                label='False', capsize=4)
+    ax.bar(ind + width/3, overall_means, width/3, yerr=overall_std,
+                label='Overall', capsize=4)
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_ylabel(yLabel)
@@ -89,9 +87,9 @@ def PlotBarGraph(true_means,false_means,overall_means,true_std,false_std,overall
 
     plt.show()
 
+#plotting of aggregated graphs against trues and falses
 def PlotAgregatedGraph(true_means,false_means,true_std,false_std,yLabel,title):
     ind = np.arange(2)  # the x locations for the groups
-#    width = 0.9  # the width of the bars
     allTruesMean = np.mean(true_means)
     allFalseMean = np.mean(false_means)
     allTruesStd = np.std(true_means)
@@ -111,6 +109,7 @@ def PlotAgregatedGraph(true_means,false_means,true_std,false_std,yLabel,title):
 
     plt.show()
 
+#this function finds centriods for the fixations and also finds saccade amplitudes
 def FinalResultIVT(fixationData1):
     finalresult = []
     centroids = []
@@ -124,7 +123,7 @@ def FinalResultIVT(fixationData1):
         centroid = (sum(x) / len(data), sum(y) / len(data))
         time = len(x)/frequency
         #centroids.append([centroid,time])
-        if time>=0.08:
+        if time>=timeThresoldFixation:
             centroidsTime.append([centroid,time])
             centroids.append(centroid)
     
@@ -145,6 +144,7 @@ def FinalResultIVT(fixationData1):
     finalresult.append(centroidsTime)
     return finalresult
 
+#draws scatter plot for fixations for testing
 def ScatterPlot(fixpoints,saccadepoints,centers):
     plt.scatter([p[0] for p in saccadepoints],[p[1] for p in saccadepoints],color='black',alpha=0.5)
     plt.scatter([p[0] for p in fixpoints],[p[1] for p in fixpoints],color='red',alpha=0.5)
@@ -156,11 +156,12 @@ def ScatterPlot(fixpoints,saccadepoints,centers):
         plt.scatter(point[0],point[1],color='yellow')
         center = plt.Circle((point[0],point[1]), RADIUS, fill = False, color ='blue' )
         plt.gcf().gca().add_artist(center)
-    plt.title("Output Data[Fixtation events detected]")
-    plt.xlabel("X axis in [°]")
-    plt.ylabel("Y axis in [°]")
+    plt.title("Fixtation detected")
+    plt.xlabel("X axis")
+    plt.ylabel("Y axis")
     plt.show()
 
+#IVT algo to detect fixations
 def IVTFixationPro(userdata):
 
     time = 1/frequency
@@ -200,6 +201,8 @@ def IVTFixationPro(userdata):
 #    ScatterPlot(simplefixationsforscatter,currentSampleSaccade,FinalResultIVT(currentSampleFixation))
     return FinalResultIVT(currentSampleFixation)
 
+#main call
+#Reading train.csv
 with open('train.csv') as csv_file:
     rows = csv.reader(csv_file, delimiter=',')
     
@@ -234,7 +237,6 @@ with open('train.csv') as csv_file:
                     s21_True.append(row[2:])
             if row[0] == ourUsers[5] and row[1] == 'false':
                     s21_False.append(row[2:])
-    #print(s5_True)
     
     s5_True_IVTResult = []
     s5_False_IVTResult = []
@@ -265,7 +267,6 @@ with open('train.csv') as csv_file:
     for data in s5_False:
         s5_False_IVTResult.append(IVTFixationPro(data))
     
-#    print('3')
     for data in s15_True:
         s15_True_IVTResult.append(IVTFixationPro(data)) 
     print('4')
@@ -300,7 +301,7 @@ with open('train.csv') as csv_file:
     for data in s21_False:
         s21_False_IVTResult.append(IVTFixationPro(data))
      
-#    part 3
+#    part 3 (Calculation of mean dixation durations(MFA) and mean saccade amplitudes(MSA))
     s5_True_MFD_MSA = MFD_MSA(s5_True_IVTResult)
     s5_False_MFD_MSA = MFD_MSA(s5_False_IVTResult)
     s5_Overall_MFD_MSA = GetOverallMSD_MFA(s5_True_MFD_MSA,s5_False_MFD_MSA)
@@ -333,7 +334,8 @@ with open('train.csv') as csv_file:
     False_MFD_MSAs = [s5_False_MFD_MSA, s15_False_MFD_MSA, s25_False_MFD_MSA, s1_False_MFD_MSA, s11_False_MFD_MSA, s21_False_MFD_MSA]
     Overall_MFD_MSAs = [s5_Overall_MFD_MSA, s15_Overall_MFD_MSA, s25_Overall_MFD_MSA, s1_Overall_MFD_MSA, s11_Overall_MFD_MSA, s21_Overall_MFD_MSA]
    
-#subject_id   MFD_true MFD_SD_true MFD_false MFD_SD_false MSA_true MSA_SD_true MSA_false MSA_SD_false MFD_overall MFD_overall_SD MSA_overall MSA_overall_SD
+    #subject_id   MFD_true MFD_SD_true MFD_false MFD_SD_false MSA_true MSA_SD_true MSA_false MSA_SD_false MFD_overall MFD_overall_SD MSA_overall MSA_overall_SD
+    #csv genration for part 3
     exists = os.path.isfile('Part3.csv')
     if exists:
         os.remove('Part3.csv')
@@ -348,10 +350,10 @@ with open('train.csv') as csv_file:
     csvfile.close()
 
     print('done')
+    
     #part4
+    #Plotting graph for analysis
     PlotBarGraph([p[2] for p in True_MFD_MSAs],[p[2] for p in False_MFD_MSAs],[p[2] for p in Overall_MFD_MSAs], [p[3] for p in True_MFD_MSAs],[p[3] for p in False_MFD_MSAs],[p[3] for p in Overall_MFD_MSAs],'MFD','Mean Fixation Duration Graph')
     PlotBarGraph([p[0] for p in True_MFD_MSAs],[p[0] for p in False_MFD_MSAs],[p[0] for p in Overall_MFD_MSAs], [p[1] for p in True_MFD_MSAs],[p[1] for p in False_MFD_MSAs],[p[1] for p in Overall_MFD_MSAs],'MSA','Mean Saccade Amplitude Graph')
     PlotAgregatedGraph([p[2] for p in True_MFD_MSAs],[p[2] for p in False_MFD_MSAs], [p[3] for p in True_MFD_MSAs],[p[3] for p in False_MFD_MSAs],'MFD','Mean Fixation Duration Graph Aggregated')
     PlotAgregatedGraph([p[0] for p in True_MFD_MSAs],[p[0] for p in False_MFD_MSAs], [p[1] for p in True_MFD_MSAs],[p[1] for p in False_MFD_MSAs],'MSA','Mean Saccade Amplitude Graph Aggregated')
-
-#    #PlotFixations(IVTResult)
