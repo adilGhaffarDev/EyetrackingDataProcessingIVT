@@ -2,6 +2,7 @@ import os
 import csv
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import colors as mcolors
 import math
 from scipy.spatial import distance
 #here are some additional settings that may help: There was a 3 x 3 points calibration matrix used, upper left point had coordinates -700, -700, and bottom right 700, 700, center point was at 0,0.  (These were not pixels, let's call them units)
@@ -88,6 +89,28 @@ def PlotBarGraph(true_means,false_means,overall_means,true_std,false_std,overall
 
     plt.show()
 
+def PlotAgregatedGraph(true_means,false_means,true_std,false_std,yLabel,title):
+    ind = np.arange(2)  # the x locations for the groups
+#    width = 0.9  # the width of the bars
+    allTruesMean = np.mean(true_means)
+    allFalseMean = np.mean(false_means)
+    allTruesStd = np.std(true_means)
+    allFalseStd = np.std(false_means)
+    fig,ax = plt.subplots()
+    ax.bar(ind, [allTruesMean,allFalseMean],yerr=[allTruesStd,allFalseStd], align='center', alpha=0.5, ecolor='black', capsize=10)
+    
+
+    # Add some text for labels, title and custom x-axis tick labels, etc.
+    ax.set_ylabel(yLabel)
+    ax.set_title(title)
+    ax.set_xticks(ind)
+    ax.set_xticklabels(['True','False'])
+    ax.legend()
+
+    fig.tight_layout()
+
+    plt.show()
+
 def FinalResultIVT(fixationData1):
     finalresult = []
     centroids = []
@@ -101,7 +124,7 @@ def FinalResultIVT(fixationData1):
         centroid = (sum(x) / len(data), sum(y) / len(data))
         time = len(x)/frequency
         #centroids.append([centroid,time])
-        if time>=0.1:
+        if time>=0.08:
             centroidsTime.append([centroid,time])
             centroids.append(centroid)
     
@@ -122,10 +145,26 @@ def FinalResultIVT(fixationData1):
     finalresult.append(centroidsTime)
     return finalresult
 
+def ScatterPlot(fixpoints,saccadepoints,centers):
+    plt.scatter([p[0] for p in saccadepoints],[p[1] for p in saccadepoints],color='black',alpha=0.5)
+    plt.scatter([p[0] for p in fixpoints],[p[1] for p in fixpoints],color='red',alpha=0.5)
+    RADIUS = 10
+    
+    #     pyplot.plot(data[:,[0]], data[:,[1]])
+    pp = [p[0] for p in centers[1]]
+    for point in pp:
+        plt.scatter(point[0],point[1],color='yellow')
+        center = plt.Circle((point[0],point[1]), RADIUS, fill = False, color ='blue' )
+        plt.gcf().gca().add_artist(center)
+    plt.title("Output Data[Fixtation events detected]")
+    plt.xlabel("X axis in [°]")
+    plt.ylabel("Y axis in [°]")
+    plt.show()
 
 def IVTFixationPro(userdata):
 
     time = 1/frequency
+    simplefixationsforscatter = []
     currentSampleFixation = []
     currentSampleSaccade = []
     fix = []
@@ -142,9 +181,11 @@ def IVTFixationPro(userdata):
 
         if velocity <= velocityThreshold:
             fix.append(prevPointUnit)
+            simplefixationsforscatter.append(prevPointUnit)
         else:
             if len(fix)>0:
                 fix.append(currPointUnit)
+                simplefixationsforscatter.append(currPointUnit)
                 fixTemp = list(fix)
                 currentSampleFixation.append(fixTemp)
             currentSampleSaccade.append(prevPointUnit)
@@ -156,7 +197,7 @@ def IVTFixationPro(userdata):
     if len(fix)>0:
         fixTemp = list(fix)
         currentSampleFixation.append(fixTemp)
-    
+#    ScatterPlot(simplefixationsforscatter,currentSampleSaccade,FinalResultIVT(currentSampleFixation))
     return FinalResultIVT(currentSampleFixation)
 
 with open('train.csv') as csv_file:
@@ -224,7 +265,7 @@ with open('train.csv') as csv_file:
     for data in s5_False:
         s5_False_IVTResult.append(IVTFixationPro(data))
     
-    print('3')
+#    print('3')
     for data in s15_True:
         s15_True_IVTResult.append(IVTFixationPro(data)) 
     print('4')
@@ -259,7 +300,7 @@ with open('train.csv') as csv_file:
     for data in s21_False:
         s21_False_IVTResult.append(IVTFixationPro(data))
      
-    #part 3
+#    part 3
     s5_True_MFD_MSA = MFD_MSA(s5_True_IVTResult)
     s5_False_MFD_MSA = MFD_MSA(s5_False_IVTResult)
     s5_Overall_MFD_MSA = GetOverallMSD_MFA(s5_True_MFD_MSA,s5_False_MFD_MSA)
@@ -310,5 +351,7 @@ with open('train.csv') as csv_file:
     #part4
     PlotBarGraph([p[2] for p in True_MFD_MSAs],[p[2] for p in False_MFD_MSAs],[p[2] for p in Overall_MFD_MSAs], [p[3] for p in True_MFD_MSAs],[p[3] for p in False_MFD_MSAs],[p[3] for p in Overall_MFD_MSAs],'MFD','Mean Fixation Duration Graph')
     PlotBarGraph([p[0] for p in True_MFD_MSAs],[p[0] for p in False_MFD_MSAs],[p[0] for p in Overall_MFD_MSAs], [p[1] for p in True_MFD_MSAs],[p[1] for p in False_MFD_MSAs],[p[1] for p in Overall_MFD_MSAs],'MSA','Mean Saccade Amplitude Graph')
+    PlotAgregatedGraph([p[2] for p in True_MFD_MSAs],[p[2] for p in False_MFD_MSAs], [p[3] for p in True_MFD_MSAs],[p[3] for p in False_MFD_MSAs],'MFD','Mean Fixation Duration Graph Aggregated')
+    PlotAgregatedGraph([p[0] for p in True_MFD_MSAs],[p[0] for p in False_MFD_MSAs], [p[1] for p in True_MFD_MSAs],[p[1] for p in False_MFD_MSAs],'MSA','Mean Saccade Amplitude Graph Aggregated')
 
-    #PlotFixations(IVTResult)
+#    #PlotFixations(IVTResult)
